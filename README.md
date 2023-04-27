@@ -1,4 +1,4 @@
-# S.aureus_hospital_outbreak_simulations
+# S.aureus hospital outbreak simulations
 
 Staphylococcus aureus hospital outbreak simulations. 
 
