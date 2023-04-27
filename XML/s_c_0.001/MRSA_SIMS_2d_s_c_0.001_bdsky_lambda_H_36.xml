@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><beast beautitemplate='Standard' beautistatus='' namespace="beast.core:beast.evolution.alignment:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel
+:beast.evolution.substitutionmodel:beast.evolution.likelihood:beast.core.parameter:beast.evolution.tree.coalescent:multitypetree.operators:multitypetree.util:master.beast:master.conditions
+:master.beast:master.conditions:master.model:master.postprocessors:master.outputs:master" version="2.0">
+
+
+	<map name="Beta">beast.math.distributions.Beta</map>
+	<map name="Poisson">beast.math.distributions.Poisson</map>
+	<map name="Exponential">beast.math.distributions.Exponential</map>
+	<map name="InverseGamma">beast.math.distributions.InverseGamma</map>
+	<map name="LogNormal">beast.math.distributions.LogNormalDistributionModel</map>
+	<map name="Gamma">beast.math.distributions.Gamma</map>
+	<map name="Uniform">beast.math.distributions.Uniform</map>
+	<map name="prior">beast.math.distributions.Prior</map>
+	<map name="LaplaceDistribution">beast.math.distributions.LaplaceDistribution</map>
+	<map name="OneOnX">beast.math.distributions.OneOnX</map>
+	<map name="Normal">beast.math.distributions.Normal</map>
+
+   <alignment spec="beast.evolution.alignment.Alignment" id="input_alignment" dataType="nucleotide">
+	<plate var='n' range='1:1000'>
+		<sequence spec="Sequence" taxon="$(n)" value="?" />
+	</plate>
+</alignment>
+
+	<model spec='Model' id='model'>
+
+		<populationType spec='PopulationType' typeName='X' dim='2' id='X'/>
+		<populationType spec='PopulationType' typeName='S' dim='2' id='S'/>
+		
+		<!-- 	
+			0 "world population"
+			1 "hospital population"
+		-->
+
+		<reactionGroup spec='ReactionGroup' reactionGroupName='Birth'>
+			<reaction spec='Reaction' rate="1.0">
+				X[0] -> 2X[0]
+			</reaction>
+			<reaction spec='Reaction' rate="36"> 
+				X[1] -> 2X[1]
+			</reaction>
+		</reactionGroup>
+			
+		<reactionGroup spec='ReactionGroup' reactionGroupName='Migration'>
+			
+			<reaction spec='Reaction' rate="0.088"> 
+				X[0] ->  X[1]
+			</reaction>
+			<reaction spec='Reaction' rate="44">
+				X[1] -> X[0] 
+			</reaction>			
+		</reactionGroup>
+
+		<reactionGroup spec='ReactionGroup' reactionGroupName='Death'>
+			<reaction spec='Reaction' rate="0.999">
+				X[0] -> 0
+			</reaction>
+			<reaction spec='Reaction' rate="0.8">
+				X[1] -> 0
+			</reaction>
+		</reactionGroup>
+
+		<reactionGroup spec='ReactionGroup' reactionGroupName='Sampling'>
+			<reaction spec='Reaction' rate="0.001">
+				X[0]:1 -> S[0]:1
+			</reaction>
+			<reaction spec='Reaction' rate="0.2">
+				X[1]:1 -> S[1]:1
+			</reaction>
+		</reactionGroup>
+	</model>
+	
+<populationModel id="populationModel" spec="ConstantPopulation">
+	<parameter name="popSize">10.0</parameter>
+</populationModel>		
+   <siteModel spec="beast.evolution.sitemodel.SiteModel" id="SiteModel" gammaCategoryCount="4" shape="1">
+	 <parameter name="mutationRate" id="mutationRate" value="1.6E-6"/>
+	 <substModel spec="HKY" kappa="4.04">
+                    <frequencies spec="Frequencies" frequencies="0.34 0.16 0.16 0.34"/> 
+	 </substModel>
+   </siteModel>				 
+	
+		<tree spec='BeastTreeFromMaster' id="mastertree" 
+				 samplePopulationSizes="true"
+				 nSamples="1"
+				 reverseTime="false"
+				 model="@model"
+				 verbosity="2">
+				<initialState spec='InitState'>					
+					<lineageSeed spec='Individual'>
+						<population spec='Population' type="@X" >
+							<location spec="RandomIntegerParameter" value="0"/>
+						</population>
+					</lineageSeed>
+      				</initialState>
+
+				<!-- Abort simulation if number of infected individuals drops to zero -->
+				<lineageEndCondition id="LEC1" spec='LineageEndCondition' nLineages="0" isRejection="true">
+						<population spec='Population' type='@X' location="0" />
+						<population spec='Population' type='@X' location="1" />
+				</lineageEndCondition>
+
+				<!-- Finish simulation when 100 samples have been generated. -->
+				<lineageEndCondition  id="LEC2" spec='LineageEndCondition' nLineages="100" isRejection="false">
+						<population spec='Population' type='@S' location="0" />
+						<population spec='Population' type='@S' location="1" />
+				</lineageEndCondition>
+
+				<!-- Keep only sampled lineages. -->
+				<inheritancePostProcessor  id="LF1" spec='LineageFilter' populationName="S"/>		
+
+				<postSimCondition spec="LeafCountPostSimCondition" nLeaves="100" exceedCondition="true"/>			
+				<output spec='NexusOutput' fileName='$(filebase)_$(seed).tree'/>
+			        <output spec='JsonOutput' fileName='$(filebase)_$(seed).json'/>
+
+				<!-- Trim off post-sampling lineages. -->
+				<inheritancePostProcessor  id="LF2" spec='LineageFilter' populationName="S"
+										  leavesOnly="true" discard="true"/>
+
+		</tree>
+					
+   <data spec='beast.app.seqgen.SimulatedAlignmentAutoTaxa' id='MRSA_sims' 
+	sequencelength="2600000" dataType="nucleotide" 	data="@input_alignment"
+	outputFileName="$(filebase)_$(seed).txt"
+	tree="@mastertree"
+	siteModel="@SiteModel">
+	   <sequence spec="Sequence" taxon="dummy" value="?" />
+   </data>
+
+
+ 
+
+<run id="mcmc" spec="MCMC" chainLength="10000000">
+    <state id="state" storeEvery="1000">
+    	<stateNode idref="tree"/>
+        <parameter id="kappa.s:MRSA_sims" lower="0.0" name="stateNode">2.0</parameter>
+        <parameter id="gammaShape.s:MRSA_sims" name="stateNode">1.0</parameter>
+        <parameter id="samplingProportion.t:MRSA_sims" name="stateNode">0.2</parameter>
+        <parameter id="clockRate.c:MRSA_sims" name="stateNode">1.6E-6</parameter>
+        <parameter id="freqParameter.s:MRSA_sims" dimension="4" lower="0.0" name="stateNode" upper="1.0">0.25</parameter>
+        <parameter id="becomeUninfectiousRate.t:MRSA_sims" lower="0.0" name="stateNode" upper="Infinity">1</parameter>
+        <parameter id="R0.t:MRSA_sims" lower="0.0" name="stateNode" dimension="1">1.3</parameter>
+
+	<stateNode idref="proportionInvariant.s:MRSA_sims"/>
+    </state>
+
+	<init spec="RandomCoalescentTreeFromMaster" masterTree="@mastertree"  taxa="@MRSA_sims" typesKnown="true" id="tree"  populationModel="@populationModel"/>
+
+    <distribution id="posterior" spec="util.CompoundDistribution">
+        <distribution id="prior" spec="util.CompoundDistribution">
+            <distribution id="BirthDeathSkySerial.t:MRSA_sims" spec="beast.evolution.speciation.BirthDeathSkylineModel" becomeUninfectiousRate="@becomeUninfectiousRate.t:MRSA_sims" 
+            	reproductiveNumber="@R0.t:MRSA_sims"  samplingProportion="@samplingProportion.t:MRSA_sims" conditionOnRoot="true" tree="@tree">
+	</distribution>            	
+             <prior id="GammaShapePrior.s:MRSA_sims" name="distribution" x="@gammaShape.s:MRSA_sims">
+                <Exponential id="Exponential.0" name="distr">
+                    <parameter id="RealParameter.0" lower="0.0" name="mean" upper="0.0">1.0</parameter>
+                </Exponential>
+            </prior>
+            <prior id="KappaPrior.s:MRSA_sims" name="distribution" x="@kappa.s:MRSA_sims">
+                <LogNormal id="LogNormalDistributionModel.0" name="distr">
+                    <parameter id="RealParameter.1" estimate="false" name="M">1.0</parameter>
+                    <parameter id="RealParameter.2" estimate="false" name="S">1.25</parameter>
+                </LogNormal>
+            </prior>
+            <prior id="becomeUninfectiousRatePrior.t:MRSA_sims" name="distribution" x="@becomeUninfectiousRate.t:MRSA_sims">
+                <Uniform name="distr" lower="0" upper="100"/>
+            </prior>
+            <prior id="R0Prior.t:MRSA_sims" name="distribution" x="@R0.t:MRSA_sims">
+                <Uniform name="distr" lower="0" upper="100"/>
+            </prior>
+        </distribution>
+        <distribution id="likelihood" spec="util.CompoundDistribution" useThreads="true">
+            <distribution id="treeLikelihood.MRSA_sims" spec="ThreadedTreeLikelihood" data="@MRSA_sims" tree="@tree">
+                <siteModel id="SiteModel.s:MRSA_sims" spec="SiteModel" gammaCategoryCount="4" shape="@gammaShape.s:MRSA_sims">
+                    <parameter id="mutationRate.s:MRSA_sims" estimate="false" name="mutationRate">1.0</parameter>
+                    <parameter id="proportionInvariant.s:MRSA_sims" lower="0.0" name="proportionInvariant" upper="1.0">0.998</parameter>
+                    <substModel id="hky.s:MRSA_sims" spec="HKY" kappa="@kappa.s:MRSA_sims">
+                        <frequencies id="estimatedFreqs.s:MRSA_sims" spec="Frequencies" frequencies="@freqParameter.s:MRSA_sims"/>
+                    </substModel>
+                </siteModel>
+                <branchRateModel id="StrictClock.c:MRSA_sims" spec="beast.evolution.branchratemodel.StrictClockModel" clock.rate="@clockRate.c:MRSA_sims"/>
+            </distribution>
+        </distribution>
+    </distribution>
+
+    <operator id="KappaScaler.s:MRSA_sims" spec="ScaleOperator" parameter="@kappa.s:MRSA_sims" scaleFactor="0.75" weight="0.1"/>
+
+    <operator id="gammaShapeScaler.s:MRSA_sims" spec="ScaleOperator" parameter="@gammaShape.s:MRSA_sims" scaleFactor="0.75" weight="0.1"/>
+
+    <operator id="BDSKY_serialtreeScaler.t:MRSA_sims" spec="ScaleOperator" scaleFactor="0.9" tree="@tree" weight="3.0"/>
+
+    <operator id="BDSKY_serialtreeRootScaler.t:MRSA_sims" spec="ScaleOperator" rootOnly="true" scaleFactor="0.9" tree="@tree" weight="3.0"/>
+
+    <operator id="BDSKY_serialUniformOperator.t:MRSA_sims" spec="Uniform" tree="@tree" weight="30.0"/>
+
+    <operator id="BDSKY_serialSubtreeSlide.t:MRSA_sims" spec="SubtreeSlide" tree="@tree" weight="15.0"/>
+
+    <operator id="BDSKY_serialnarrow.t:MRSA_sims" spec="Exchange" tree="@tree" weight="15.0"/>
+
+    <operator id="BDSKY_serialwide.t:MRSA_sims" spec="Exchange" isNarrow="false" tree="@tree" weight="3.0"/>
+
+    <operator id="BDSKY_serialWilsonBalding.t:MRSA_sims" spec="WilsonBalding" tree="@tree" weight="3.0"/>
+
+
+    <operator id="proportionInvariantScaler.s:MRSA_sims" spec="ScaleOperator" parameter="@proportionInvariant.s:MRSA_sims" scaleFactor="0.95" weight="1.0"/>
+
+    <operator id="FrequenciesExchanger.s:MRSA_sims" spec="DeltaExchangeOperator" delta="0.01" weight="1">
+        <parameter idref="freqParameter.s:MRSA_sims"/>
+    </operator>
+
+    <operator id="R0Scaler.t:MRSA_sims" spec="ScaleOperator" parameter="@R0.t:MRSA_sims" scaleFactor="0.75" weight="3"/>
+
+
+    <logger id="screenlog" logEvery="1000">
+        <log idref="posterior"/>
+        <log id="ESS.0" spec="util.ESS" arg="@posterior"/>
+        <log idref="likelihood"/>
+        <log idref="prior"/>
+        <log idref="R0.t:MRSA_sims"/>
+          <log idref="becomeUninfectiousRate.t:MRSA_sims"/>
+        <log idref="proportionInvariant.s:MRSA_sims"/>
+        <log idref="clockRate.c:MRSA_sims"/>
+        <log idref="TreeHeight.t:MRSA_sims"/>
+    </logger>
+
+    <logger id="tracelog" fileName="$(filebase)_$(seed).log" logEvery="10000" model="@posterior" sanitiseHeaders="true" sort="smart">
+        <log idref="posterior"/>
+        <log idref="likelihood"/>
+        <log idref="prior"/>
+        <log idref="treeLikelihood.MRSA_sims"/>
+        <log id="TreeHeight.t:MRSA_sims" spec="beast.evolution.tree.TreeHeightLogger" tree="@tree"/>
+        <log idref="kappa.s:MRSA_sims"/>
+        <log idref="gammaShape.s:MRSA_sims"/>
+        <log idref="BirthDeathSkySerial.t:MRSA_sims"/>
+        <log idref="samplingProportion.t:MRSA_sims"/>
+        <log idref="clockRate.c:MRSA_sims"/>
+        <log idref="freqParameter.s:MRSA_sims"/>
+        <log idref="proportionInvariant.s:MRSA_sims"/>
+        <log idref="becomeUninfectiousRate.t:MRSA_sims"/>
+        <log idref="R0.t:MRSA_sims"/>
+        <log id="birth.t:MRSA_sims" spec="beast.math.statistic.RPNcalculator" expression="R0.t:MRSA_sims becomeUninfectiousRate.t:MRSA_sims *">
+            <parameter idref="becomeUninfectiousRate.t:MRSA_sims"/>
+            <parameter idref="R0.t:MRSA_sims"/>
+        </log>
+        <log id="death.t:MRSA_sims" spec="beast.math.statistic.RPNcalculator" expression="becomeUninfectiousRate.t:MRSA_sims 1 samplingProportion.t:MRSA_sims - *">
+            <parameter idref="becomeUninfectiousRate.t:MRSA_sims"/>
+            <parameter idref="samplingProportion.t:MRSA_sims"/>
+        </log>
+        <log id="sampling.t:MRSA_sims" spec="beast.math.statistic.RPNcalculator" expression="becomeUninfectiousRate.t:MRSA_sims samplingProportion.t:MRSA_sims *">
+            <parameter idref="becomeUninfectiousRate.t:MRSA_sims"/>
+            <parameter idref="samplingProportion.t:MRSA_sims"/>
+        </log>
+    </logger>
+
+
+    <logger id="treelog.t:MRSA_sims" fileName="$(filebase)_$(seed).trees" logEvery="10000" mode="tree">
+        <log id="TreeWithMetaDataLogger.t:MRSA_sims" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree"/>
+    </logger>
+       
+
+</run>
+
+</beast>
