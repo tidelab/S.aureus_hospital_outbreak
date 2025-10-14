@@ -1,4 +1,4 @@
-# Staphylococcus aureus hospital outbreak simulations
+# S. aureus hospital outbreak simulations
 
 Supplementary material for
 
