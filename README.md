@@ -9,9 +9,13 @@ The folder ‘XML’ contains a separate subfolder for each community sampling s
 The simulations included in the manuscript were run using BEAST2 version 2.6.2 with the following package versions:
 
 BDSKY v1.4.7
+
 BDMM v1.0
+
 MASTER v6.1.2
+
 BEASTLabs v1.9.6
+
 MultiTypeTree v7.0.2 
 
 For each scenario, 100 replicates were run using random number generator seeds ranging from 3100 to 3199. 
