@@ -1,8 +1,6 @@
 # S. aureus hospital outbreak simulations
 
-Supplementary material for
-
-_Fast hospital discharge rates blur within-hospital ’transmission footprint’ in bacterial genomes, showcased with Staphylococcus aureus_
+This repository contains the BEAST 2 XML files needed to replicate the simulation analyses presented in the manuscript _“Fast hospital discharge rates blur within-hospital ’transmission footprint’ in bacterial genomes, showcased with Staphylococcus aureus”_. 
 
 The folder ‘XML’ contains a separate subfolder for each community sampling scenario (i.e. s_c = 0.0 / 0.01 / 0.001 / 0.0001), with each subfolder including the corresponding XML files. Each XML file consists of sections defining (i) the transmission tree simulation under the respective scenario, (ii) the simulation of a sequence alignment along that tree under the specified substitution model and rate, and (iii) the Bayesian inference under the chosen birth-death-sampling model (bdsky or bdmm). A more detailed description of the simulation scenarios is provided in the main text.
 
